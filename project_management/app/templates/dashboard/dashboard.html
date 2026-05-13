@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Network Project Management{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <h1>Dashboard</h1>
+    
+    <div class="stats-grid">
+        {% if user.profile.role in "admin,project_manager" %}
+        <div class="stat-card">
+            <div class="stat-icon" style="background: #667eea;">
+                <i class="icon-briefcase"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ total_projects }}</h3>
+                <p>Total Projects</p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: #f093fb;">
+                <i class="icon-hourglass"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ active_projects }}</h3>
+                <p>Active Projects</p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: #4facfe;">
+                <i class="icon-users"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ total_users|default:"" }}</h3>
+                <p>Total Users</p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: #43e97b;">
+                <i class="icon-alert"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ overdue_tasks.count }}</h3>
+                <p>Overdue Tasks</p>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if user.profile.role == 'engineer' %}
+        <div class="stat-card">
+            <div class="stat-icon" style="background: #667eea;">
+                <i class="icon-task"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ assigned_tasks.count }}</h3>
+                <p>Assigned Tasks</p>
+            </div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon" style="background: #43e97b;">
+                <i class="icon-check"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ completed_tasks }}</h3>
+                <p>Completed Tasks</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="dashboard-content">
+        <div class="dashboard-section">
+            <h2>Upcoming Milestones</h2>
+            {% if upcoming_milestones %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Milestone</th>
+                        <th>Project</th>
+                        <th>Delivery Date</th>
+                        <th>Status</th>
+                        <th>Progress</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for milestone in upcoming_milestones %}
+                    <tr>
+                        <td><a href="{% url 'milestone_detail' milestone.id %}">{{ milestone.name }}</a></td>
+                        <td><a href="{% url 'project_detail' milestone.project.id %}">{{ milestone.project.name }}</a></td>
+                        <td>{{ milestone.baseline_delivery_date|date:"d M Y" }}</td>
+                        <td><span class="badge badge-{{ milestone.status }}">{{ milestone.get_status_display }}</span></td>
+                        <td>
+                            <div class="progress-bar">
+                                <div class="progress" style="width: {{ milestone.completion_percentage }}%"></div>
+                            </div>
+                            <span>{{ milestone.completion_percentage }}%</span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="no-data">No upcoming milestones</p>
+            {% endif %}
+        </div>
+
+        {% if overdue_tasks %}
+        <div class="dashboard-section">
+            <h2>Overdue Tasks</h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Task</th>
+                        <th>Milestone</th>
+                        <th>Due Date</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for task in overdue_tasks|slice:":5" %}
+                    <tr class="row-alert">
+                        <td><a href="{% url 'subtask_detail' task.id %}">{{ task.name }}</a></td>
+                        <td>{{ task.milestone.name }}</td>
+                        <td class="overdue">{{ task.due_date|date:"d M Y" }}</td>
+                        <td><span class="badge badge-{{ task.priority }}">{{ task.get_priority_display }}</span></td>
+                        <td><span class="badge badge-{{ task.status }}">{{ task.get_status_display }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if overdue_milestones %}
+        <div class="dashboard-section">
+            <h2>Overdue Milestones</h2>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Milestone</th>
+                        <th>Project</th>
+                        <th>Delivery Date</th>
+                        <th>Days Overdue</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for milestone in overdue_milestones %}
+                    <tr class="row-alert">
+                        <td><a href="{% url 'milestone_detail' milestone.id %}">{{ milestone.name }}</a></td>
+                        <td><a href="{% url 'project_detail' milestone.project.id %}">{{ milestone.project.name }}</a></td>
+                        <td>{{ milestone.baseline_delivery_date|date:"d M Y" }}</td>
+                        <td>{{ milestone.days_remaining|add:"-days" }}</td>
+                        <td><span class="badge badge-danger">{{ milestone.get_status_display }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script src="/static/js/dashboard.js"></script>
+{% endblock %}

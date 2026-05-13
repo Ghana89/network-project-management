@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Archive Project - Network Project Management{% endblock %}
+
+{% block content %}
+<div class="delete-confirmation">
+    <div class="confirmation-card">
+        <h2>Archive Project</h2>
+        <p>Are you sure you want to archive the project "<strong>{{ project.name }}</strong>"?</p>
+        <p style="color: #666; font-size: 14px;">This project will be moved to archived status and will no longer appear in your active projects list.</p>
+
+        <div class="confirmation-actions">
+            <form method="post" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger">Yes, Archive Project</button>
+            </form>
+            <a href="{% url 'project_detail' project.id %}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </div>
+</div>
+
+<style>
+.delete-confirmation {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+}
+
+.confirmation-card {
+    background: white;
+    padding: 40px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    max-width: 500px;
+    text-align: center;
+}
+
+.confirmation-card h2 {
+    margin: 0 0 15px 0;
+    color: #333;
+}
+
+.confirmation-card p {
+    margin: 10px 0;
+    color: #666;
+}
+
+.confirmation-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 30px;
+    justify-content: center;
+}
+
+.confirmation-actions .btn {
+    min-width: 150px;
+}
+</style>
+{% endblock %}

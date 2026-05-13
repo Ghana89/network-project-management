@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - Network Project Management{% endblock %}
+
+{% block content %}
+<div class="form-page">
+    <div class="page-header">
+        <h1>{{ title }}</h1>
+    </div>
+
+    <form method="post" class="form-container">
+        {% csrf_token %}
+        
+        <div class="form-section">
+            {% for field in form %}
+                {% if field.name not in "id" %}
+                <div class="form-group">
+                    {{ field.label_tag }}
+                    {% if field.widget.input_type == 'textarea' %}
+                    <textarea class="form-control" name="{{ field.name }}" id="{{ field.id }}" rows="4">{{ field.value|default:"" }}</textarea>
+                    {% elif field.widget.input_type == 'checkbox' %}
+                    <div class="checkbox-group">
+                        {{ field }}
+                    </div>
+                    {% else %}
+                    {{ field }}
+                    {% endif %}
+                    {% if field.errors %}
+                    <span class="error">{{ field.errors.0 }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">{{ title }}</button>
+            <a href="javascript:history.back()" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

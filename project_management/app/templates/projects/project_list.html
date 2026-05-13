@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Projects - Network Project Management{% endblock %}
+
+{% block content %}
+<div class="projects-page">
+    <div class="page-header">
+        <h1>Projects</h1>
+        {% if user.profile.role in "admin,project_manager" %}
+        <a href="{% url 'project_create' %}" class="btn btn-primary">+ New Project</a>
+        {% endif %}
+    </div>
+
+    <div class="filter-section">
+        <form method="get" class="filter-form">
+            <input type="text" name="search" placeholder="Search projects..." value="{{ search }}" class="form-control">
+            <select name="status" class="form-control">
+                <option value="">All Status</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <select name="priority" class="form-control">
+                <option value="">All Priority</option>
+                {% for value, label in priority_choices %}
+                <option value="{{ value }}" {% if priority == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-secondary">Filter</button>
+        </form>
+    </div>
+
+    <div class="projects-grid">
+        {% for project in projects %}
+        <div class="project-card">
+            <div class="project-header">
+                <h3><a href="{% url 'project_detail' project.id %}">{{ project.name }}</a></h3>
+                <span class="badge badge-{{ project.status }}">{{ project.get_status_display }}</span>
+            </div>
+            
+            <div class="project-info">
+                <p><strong>Project ID:</strong> {{ project.project_id }}</p>
+                <p><strong>Customer:</strong> {{ project.customer_name }}</p>
+                <p><strong>Manager:</strong> {{ project.project_manager.get_full_name|default:project.project_manager.username }}</p>
+                <p><strong>Timeline:</strong> {{ project.start_date|date:"d M Y" }} - {{ project.end_date|date:"d M Y" }}</p>
+            </div>
+
+            <div class="project-progress">
+                <div class="progress-header">
+                    <span>Progress</span>
+                    <span>{{ project.progress_percentage }}%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress" style="width: {{ project.progress_percentage }}%"></div>
+                </div>
+            </div>
+
+            <div class="project-actions">
+                <a href="{% url 'project_detail' project.id %}" class="btn btn-sm btn-secondary">View Details</a>
+                {% if user.profile.role in "admin,project_manager" and project.project_manager == user %}
+                <a href="{% url 'project_edit' project.id %}" class="btn btn-sm btn-secondary">Edit</a>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <p class="no-data">No projects found.</p>
+        {% endfor %}
+    </div>
+
+    {% if projects.has_other_pages %}
+    <div class="pagination">
+        {% if projects.has_previous %}
+        <a href="?page=1" class="btn btn-sm">First</a>
+        <a href="?page={{ projects.previous_page_number }}" class="btn btn-sm">Previous</a>
+        {% endif %}
+
+        <span class="page-info">Page {{ projects.number }} of {{ projects.paginator.num_pages }}</span>
+
+        {% if projects.has_next %}
+        <a href="?page={{ projects.next_page_number }}" class="btn btn-sm">Next</a>
+        <a href="?page={{ projects.paginator.num_pages }}" class="btn btn-sm">Last</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

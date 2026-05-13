@@ -1,0 +1,47 @@
+QUICK START GUIDE
+================
+
+1. INSTALLATION
+   - Open PowerShell/Command Prompt
+   - Navigate to: C:\Users\ADMIN\Documents\network-project-management\project_management
+   - Run: python manage.py migrate
+   - Run: python manage.py runserver
+
+2. ACCESS APPLICATION
+   - Open browser: http://localhost:8000/admin/
+   - Create superuser when prompted
+   - Or access main app at: http://localhost:8000/
+
+3. DEFAULT USERS (after running create_initial_data.py)
+   - Admin: admin / admin123
+   - PM: pm_user / pm123
+   - Engineer: engineer1 / engineer123
+
+4. CREATE FIRST PROJECT
+   - Login with PM account
+   - Click Projects > New Project
+   - Fill in details and save
+   - Add milestones
+   - Add tasks and assign to engineers
+
+5. FEATURES TO EXPLORE
+   - Dashboard: Overview of all activities
+   - Projects: Manage projects and milestones
+   - Resources: View team members and utilization
+   - Reports: Generate status reports
+   - Notifications: Task assignments and updates
+
+6. DATABASE
+   - Located at: project_management/db.sqlite3
+   - Fully SQLite with no external dependencies
+
+7. TROUBLESHOOTING
+   - If static files don't load: python manage.py collectstatic
+   - If migrations fail: Delete db.sqlite3 and run migrate again
+   - For more help: Check README.md
+
+IMPORTANT NOTES:
+- Change SECRET_KEY in settings.py before production
+- Email notifications currently use console backend (check Django console)
+- All data is stored locally in SQLite
+- Runs on http://localhost:8000 by default

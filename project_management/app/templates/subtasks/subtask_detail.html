@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}{{ task.name }} - Network Project Management{% endblock %}
+
+{% block content %}
+<div class="task-detail">
+    <div class="page-header">
+        <div>
+            <h1>{{ task.name }}</h1>
+            <p class="breadcrumb">
+                <a href="{% url 'project_detail' task.milestone.project.id %}">{{ task.milestone.project.name }}</a> /
+                <a href="{% url 'milestone_detail' task.milestone.id %}">{{ task.milestone.name }}</a>
+            </p>
+        </div>
+        <div class="header-actions">
+            {% if user.profile.role in "admin,project_manager,engineer" %}
+            <a href="{% url 'subtask_edit' task.id %}" class="btn btn-secondary">Edit Task</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="task-info-grid">
+        <div class="info-card">
+            <h4>Status</h4>
+            <p><span class="badge badge-{{ task.status }}">{{ task.get_status_display }}</span></p>
+        </div>
+        <div class="info-card">
+            <h4>Assigned To</h4>
+            <p>{{ task.assigned_to.get_full_name|default:task.assigned_to.username|default:"Unassigned" }}</p>
+        </div>
+        <div class="info-card">
+            <h4>Priority</h4>
+            <p><span class="badge badge-{{ task.priority }}">{{ task.get_priority_display }}</span></p>
+        </div>
+        <div class="info-card">
+            <h4>Start Date</h4>
+            <p>{{ task.start_date|date:"d M Y" }}</p>
+        </div>
+        <div class="info-card">
+            <h4>Due Date</h4>
+            <p>{{ task.due_date|date:"d M Y" }}{% if task.is_overdue %}<br><span class="tag-overdue">OVERDUE</span>{% endif %}</p>
+        </div>
+        <div class="info-card">
+            <h4>Effort Tracking</h4>
+            <p>Est: {{ task.estimated_effort }}h / Actual: {{ task.actual_effort }}h</p>
+        </div>
+    </div>
+
+    {% if task.description %}
+    <div class="section">
+        <h3>Description</h3>
+        <p>{{ task.description }}</p>
+    </div>
+    {% endif %}
+
+    {% if task.comments %}
+    <div class="section">
+        <h3>Comments</h3>
+        <p>{{ task.comments }}</p>
+    </div>
+    {% endif %}
+
+    {% if task.dependency %}
+    <div class="section">
+        <h3>Dependencies</h3>
+        <p>{{ task.dependency }}</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.task-detail {
+    padding: 20px;
+}
+
+.breadcrumb {
+    color: #666;
+    margin: 5px 0 0 0;
+    font-size: 14px;
+}
+
+.breadcrumb a {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.task-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.info-card {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.info-card h4 {
+    margin: 0 0 10px 0;
+    color: #667eea;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.info-card p {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.section {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.tag-overdue {
+    background: #d32f2f;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+}
+</style>
+{% endblock %}

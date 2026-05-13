@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}{{ resource.employee_id }} - Network Project Management{% endblock %}
+
+{% block content %}
+<div class="resource-detail">
+    <div class="page-header">
+        <div>
+            <h1>{{ resource.user.get_full_name|default:resource.user.username }}</h1>
+            <p class="resource-meta">{{ resource.employee_id }}</p>
+        </div>
+    </div>
+
+    <div class="resource-info-grid">
+        <div class="info-card">
+            <h4>Department</h4>
+            <p>{{ resource.department }}</p>
+        </div>
+        <div class="info-card">
+            <h4>Availability</h4>
+            <p><span class="badge badge-{{ resource.availability|lower }}">{{ resource.get_availability_display }}</span></p>
+        </div>
+        <div class="info-card">
+            <h4>Assigned Tasks</h4>
+            <p>{{ assigned_tasks.count }}</p>
+        </div>
+        <div class="info-card">
+            <h4>Completed Tasks</h4>
+            <p>{{ completed_tasks }}</p>
+        </div>
+        <div class="info-card">
+            <h4>Total Workload</h4>
+            <p>{{ total_workload }} hours</p>
+        </div>
+        <div class="info-card">
+            <h4>Projects</h4>
+            <p>{{ projects.count }}</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>Skills</h3>
+        <p>{{ resource.skill_set }}</p>
+    </div>
+
+    <div class="section">
+        <h3>Projects</h3>
+        {% if projects %}
+        <ul>
+            {% for project in projects %}
+            <li><a href="{% url 'project_detail' project.id %}">{{ project.name }}</a></li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="no-data">No projects assigned yet.</p>
+        {% endif %}
+    </div>
+
+    <div class="section">
+        <h3>Assigned Tasks ({{ assigned_tasks.count }})</h3>
+        {% if assigned_tasks %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Task</th>
+                    <th>Milestone</th>
+                    <th>Status</th>
+                    <th>Due Date</th>
+                    <th>Priority</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in assigned_tasks %}
+                <tr>
+                    <td><a href="{% url 'subtask_detail' task.id %}">{{ task.name }}</a></td>
+                    <td><a href="{% url 'milestone_detail' task.milestone.id %}">{{ task.milestone.name }}</a></td>
+                    <td><span class="badge badge-{{ task.status }}">{{ task.get_status_display }}</span></td>
+                    <td>{{ task.due_date|date:"d M Y" }}</td>
+                    <td><span class="badge badge-{{ task.priority }}">{{ task.get_priority_display }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="no-data">No tasks assigned.</p>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.resource-detail {
+    padding: 20px;
+}
+
+.resource-meta {
+    color: #666;
+    margin: 5px 0 0 0;
+}
+
+.resource-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.info-card {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.info-card h4 {
+    margin: 0 0 10px 0;
+    color: #667eea;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.info-card p {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.section {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.section h3 {
+    margin: 0 0 15px 0;
+}
+
+.section ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.section li {
+    padding: 8px 0;
+}
+
+.section a {
+    color: #667eea;
+    text-decoration: none;
+}
+
+.section a:hover {
+    text-decoration: underline;
+}
+</style>
+{% endblock %}

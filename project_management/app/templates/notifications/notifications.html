@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications - Network Project Management{% endblock %}
+
+{% block content %}
+<div class="notifications-page">
+    <div class="page-header">
+        <h1>Notifications</h1>
+        <span class="unread-badge">{{ unread_count }} Unread</span>
+    </div>
+
+    {% if notifications %}
+    <div class="notifications-list">
+        {% for notification in notifications %}
+        <div class="notification-item {% if not notification.is_read %}unread{% endif %}" data-notification-id="{{ notification.id }}">
+            <div class="notification-icon">
+                {% if notification.notification_type == 'task_assigned' %}
+                <i class="icon-task"></i>
+                {% elif notification.notification_type == 'task_updated' %}
+                <i class="icon-refresh"></i>
+                {% elif notification.notification_type == 'milestone_completed' %}
+                <i class="icon-check"></i>
+                {% elif notification.notification_type == 'task_overdue' %}
+                <i class="icon-alert"></i>
+                {% else %}
+                <i class="icon-info"></i>
+                {% endif %}
+            </div>
+
+            <div class="notification-content">
+                <h4>{{ notification.title }}</h4>
+                <p>{{ notification.message }}</p>
+                <span class="notification-date">{{ notification.created_at|date:"d M Y H:i" }}</span>
+            </div>
+
+            <div class="notification-actions">
+                {% if not notification.is_read %}
+                <button class="mark-read-btn" onclick="markAsRead({{ notification.id }})">Mark Read</button>
+                {% endif %}
+                {% if notification.related_task %}
+                <a href="{% url 'subtask_detail' notification.related_task.id %}" class="btn btn-xs">View Task</a>
+                {% elif notification.related_milestone %}
+                <a href="{% url 'milestone_detail' notification.related_milestone.id %}" class="btn btn-xs">View Milestone</a>
+                {% elif notification.related_project %}
+                <a href="{% url 'project_detail' notification.related_project.id %}" class="btn btn-xs">View Project</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if notifications.has_other_pages %}
+    <div class="pagination">
+        {% if notifications.has_previous %}
+        <a href="?page=1" class="btn btn-sm">First</a>
+        <a href="?page={{ notifications.previous_page_number }}" class="btn btn-sm">Previous</a>
+        {% endif %}
+
+        <span class="page-info">Page {{ notifications.number }} of {{ notifications.paginator.num_pages }}</span>
+
+        {% if notifications.has_next %}
+        <a href="?page={{ notifications.next_page_number }}" class="btn btn-sm">Next</a>
+        <a href="?page={{ notifications.paginator.num_pages }}" class="btn btn-sm">Last</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <p class="no-data">No notifications yet.</p>
+    {% endif %}
+</div>
+
+<style>
+.notifications-page {
+    padding: 20px;
+}
+
+.unread-badge {
+    background: #667eea;
+    color: white;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+}
+
+.notifications-list {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.notification-item {
+    display: flex;
+    align-items: flex-start;
+    padding: 20px;
+    border-bottom: 1px solid #eee;
+    background: #f9f9f9;
+    transition: background 0.3s;
+}
+
+.notification-item.unread {
+    background: #f0f7ff;
+    border-left: 4px solid #667eea;
+}
+
+.notification-item:hover {
+    background: #f5f5f5;
+}
+
+.notification-icon {
+    font-size: 24px;
+    color: #667eea;
+    margin-right: 15px;
+    min-width: 40px;
+}
+
+.notification-content {
+    flex: 1;
+}
+
+.notification-content h4 {
+    margin: 0 0 8px 0;
+    color: #333;
+}
+
+.notification-content p {
+    margin: 0 0 8px 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.notification-date {
+    color: #999;
+    font-size: 12px;
+}
+
+.notification-actions {
+    display: flex;
+    gap: 10px;
+    margin-left: 15px;
+}
+
+.mark-read-btn {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.mark-read-btn:hover {
+    background: #5568d3;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+}
+</style>
+
+<script>
+function markAsRead(notificationId) {
+    fetch(`/notifications/${notificationId}/mark-read/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            location.reload();
+        }
+    });
+}
+</script>
+{% endblock %}

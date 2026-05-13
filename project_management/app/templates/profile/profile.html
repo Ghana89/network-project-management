@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - Network Project Management{% endblock %}
+
+{% block content %}
+<div class="profile-page">
+    <div class="page-header">
+        <h1>My Profile</h1>
+    </div>
+
+    <div class="profile-container">
+        <div class="profile-sidebar">
+            {% if user_profile.profile_photo %}
+            <img src="{{ user_profile.profile_photo.url }}" alt="Profile Photo" class="profile-photo">
+            {% else %}
+            <div class="profile-photo-placeholder">
+                <i class="icon-user"></i>
+            </div>
+            {% endif %}
+            
+            <div class="profile-basic">
+                <h2>{{ user.get_full_name|default:user.username }}</h2>
+                <p class="role">{{ user_profile.get_role_display }}</p>
+                <p class="email">{{ user.email }}</p>
+            </div>
+        </div>
+
+        <div class="profile-content">
+            <form method="post" enctype="multipart/form-data" class="profile-form">
+                {% csrf_token %}
+                
+                <div class="form-section">
+                    <h3>Profile Information</h3>
+                    
+                    {% for field in form %}
+                    <div class="form-group">
+                        {{ field.label_tag }}
+                        {% if field.widget.input_type == 'textarea' %}
+                        <textarea class="form-control" name="{{ field.name }}" id="{{ field.id }}" rows="4">{{ field.value|default:"" }}</textarea>
+                        {% elif field.widget.input_type == 'file' %}
+                        <input type="file" name="{{ field.name }}" id="{{ field.id }}" class="form-control">
+                        {% else %}
+                        {{ field }}
+                        {% endif %}
+                        {% if field.errors %}
+                        <span class="error">{{ field.errors.0 }}</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.profile-page {
+    padding: 20px;
+}
+
+.profile-container {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+.profile-sidebar {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.profile-photo {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 20px;
+}
+
+.profile-photo-placeholder {
+    width: 150px;
+    height: 150px;
+    background: #f0f0f0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    font-size: 60px;
+    color: #ccc;
+}
+
+.profile-basic {
+    text-align: center;
+}
+
+.profile-basic h2 {
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+.profile-basic .role {
+    background: #667eea;
+    color: white;
+    display: inline-block;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    margin: 0 0 10px 0;
+}
+
+.profile-basic .email {
+    color: #666;
+    font-size: 14px;
+    margin: 0;
+}
+
+.profile-content {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.form-section {
+    margin-bottom: 30px;
+}
+
+.form-section h3 {
+    margin: 0 0 20px 0;
+    color: #333;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #333;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.form-actions .btn {
+    min-width: 150px;
+}
+
+@media (max-width: 768px) {
+    .profile-container {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

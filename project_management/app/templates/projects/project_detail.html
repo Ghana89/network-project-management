@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.name }} - Network Project Management{% endblock %}
+
+{% block content %}
+<div class="project-detail">
+    <div class="page-header">
+        <div>
+            <h1>{{ project.name }}</h1>
+            <p class="project-meta">{{ project.project_id }} | {{ project.customer_name }}</p>
+        </div>
+        <div class="header-actions">
+            {% if user.profile.role in "admin,project_manager" and project.project_manager == user %}
+            <a href="{% url 'project_edit' project.id %}" class="btn btn-secondary">Edit Project</a>
+            <a href="{% url 'project_archive' project.id %}" class="btn btn-secondary">Archive</a>
+            {% endif %}
+            <a href="{% url 'export_project_pdf' project.id %}" class="btn btn-secondary">Export PDF</a>
+        </div>
+    </div>
+
+    <div class="project-info-grid">
+        <div class="info-card">
+            <h4>Manager</h4>
+            <p>{{ project.project_manager.get_full_name|default:project.project_manager.username }}</p>
+        </div>
+        <div class="info-card">
+            <h4>Status</h4>
+            <p><span class="badge badge-{{ project.status }}">{{ project.get_status_display }}</span></p>
+        </div>
+        <div class="info-card">
+            <h4>Priority</h4>
+            <p><span class="badge badge-{{ project.priority }}">{{ project.get_priority_display }}</span></p>
+        </div>
+        <div class="info-card">
+            <h4>Start Date</h4>
+            <p>{{ project.start_date|date:"d M Y" }}</p>
+        </div>
+        <div class="info-card">
+            <h4>End Date</h4>
+            <p>{{ project.end_date|date:"d M Y" }}</p>
+        </div>
+        <div class="info-card">
+            <h4>Overall Progress</h4>
+            <p>
+                <div class="progress-bar">
+                    <div class="progress" style="width: {{ project_progress }}%"></div>
+                </div>
+                {{ project_progress }}%
+            </p>
+        </div>
+    </div>
+
+    {% if project.description %}
+    <div class="section">
+        <h3>Description</h3>
+        <p>{{ project.description }}</p>
+    </div>
+    {% endif %}
+
+    <div class="section">
+        <div class="section-header">
+            <h3>Milestones</h3>
+            {% if user.profile.role in "admin,project_manager" and project.project_manager == user %}
+            <a href="{% url 'milestone_create' project.id %}" class="btn btn-sm btn-primary">+ Add Milestone</a>
+            {% endif %}
+        </div>
+
+        {% if milestones %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Milestone</th>
+                    <th>Status</th>
+                    <th>Delivery Date</th>
+                    <th>Progress</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for milestone in milestones %}
+                <tr {% if milestone.is_overdue %}class="row-alert"{% endif %}>
+                    <td><a href="{% url 'milestone_detail' milestone.id %}">{{ milestone.name }}</a></td>
+                    <td><span class="badge badge-{{ milestone.status }}">{{ milestone.get_status_display }}</span></td>
+                    <td>
+                        {{ milestone.baseline_delivery_date|date:"d M Y" }}
+                        {% if milestone.is_overdue %}<span class="tag-overdue"> (OVERDUE)</span>{% endif %}
+                    </td>
+                    <td>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: {{ milestone.completion_percentage }}%"></div>
+                        </div>
+                        {{ milestone.completion_percentage }}%
+                    </td>
+                    <td>
+                        <a href="{% url 'milestone_detail' milestone.id %}" class="btn btn-xs">View</a>
+                        {% if user.profile.role in "admin,project_manager" and project.project_manager == user %}
+                        <a href="{% url 'milestone_edit' milestone.id %}" class="btn btn-xs">Edit</a>
+                        <a href="{% url 'milestone_delete' milestone.id %}" class="btn btn-xs btn-danger">Delete</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p class="no-data">No milestones created yet.</p>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.project-detail {
+    padding: 20px;
+}
+
+.project-meta {
+    color: #666;
+    margin-top: 5px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.project-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin: 20px 0;
+}
+
+.info-card {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.info-card h4 {
+    margin: 0 0 10px 0;
+    color: #667eea;
+    font-size: 12px;
+    text-transform: uppercase;
+}
+
+.info-card p {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.section {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-top: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.tag-overdue {
+    background: #d32f2f;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    margin-left: 8px;
+}
+</style>
+{% endblock %}

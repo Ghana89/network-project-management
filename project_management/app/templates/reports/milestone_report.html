@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Milestone Report - Network Project Management{% endblock %}
+
+{% block content %}
+<div class="reports-page">
+    <div class="page-header">
+        <h1>Milestone Completion Report</h1>
+    </div>
+
+    <div class="report-container">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Milestone Name</th>
+                    <th>Project</th>
+                    <th>Status</th>
+                    <th>Baseline Date</th>
+                    <th>Actual Date</th>
+                    <th>Completion %</th>
+                    <th>Days Remaining</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for milestone in milestones %}
+                <tr {% if milestone.is_overdue %}class="row-alert"{% endif %}>
+                    <td><a href="{% url 'milestone_detail' milestone.id %}">{{ milestone.name }}</a></td>
+                    <td><a href="{% url 'project_detail' milestone.project.id %}">{{ milestone.project.name }}</a></td>
+                    <td><span class="badge badge-{{ milestone.status }}">{{ milestone.get_status_display }}</span></td>
+                    <td>{{ milestone.baseline_delivery_date|date:"d M Y" }}</td>
+                    <td>{{ milestone.actual_delivery_date|date:"d M Y"|default:"Not delivered" }}</td>
+                    <td>
+                        <div class="progress-bar">
+                            <div class="progress" style="width: {{ milestone.completion_percentage }}%"></div>
+                        </div>
+                        {{ milestone.completion_percentage }}%
+                    </td>
+                    <td {% if milestone.is_overdue %}class="overdue"{% endif %}>
+                        {% if milestone.is_overdue %}
+                        <span class="tag-overdue">{{ milestone.days_remaining|add:"-days" }}</span>
+                        {% else %}
+                        {{ milestone.days_remaining }} days
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="no-data">No milestones found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.reports-page {
+    padding: 20px;
+}
+
+.report-container {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+}
+
+.row-alert {
+    background: #fff3e0 !important;
+}
+
+.overdue {
+    background: #ffebee !important;
+}
+
+.tag-overdue {
+    background: #d32f2f;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table thead {
+    background: #f5f5f5;
+}
+
+.table th {
+    padding: 15px;
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #ddd;
+}
+
+.table td {
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.table tbody tr:hover {
+    background: #f9f9f9;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 20px;
+    background: #f0f0f0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 5px;
+}
+
+.progress {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    transition: width 0.3s;
+}
+</style>
+{% endblock %}
