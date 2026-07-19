@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Confirm Restoration - Network Project Management{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-3">
+    <div class="col-md-6" style="max-width: 600px; margin: 0 auto;">
+        <div class="card" style="border-top: 4px solid var(--success-color);">
+            <div class="card-header" style="background: rgba(67, 233, 123, 0.02);">
+                <h3 style="color: #2e7d32; display: flex; align-items: center; gap: 10px; margin: 0;">
+                    <i class="fas fa-trash-restore-alt"></i> Restore User Profile
+                </h3>
+            </div>
+            
+            <div class="card-body">
+                <p>Are you sure you want to restore the user profile for <strong>{{ user.username }}</strong>?</p>
+                
+                <div class="alert alert-success" style="margin: 20px 0; background: rgba(67, 233, 123, 0.05); border-left: 4px solid var(--success-color); color: #2e7d32;">
+                    <div style="display: flex; gap: 10px; align-items: flex-start;">
+                        <i class="fas fa-info-circle" style="margin-top: 4px;"></i>
+                        <div>
+                            <strong>What happens when you restore a user?</strong>
+                            <ul style="margin: 5px 0 0 20px; padding: 0;">
+                                <li>The user's login access will be immediately re-enabled.</li>
+                                <li>They will reappear in all active user lists and role selections.</li>
+                                <li>They will once again be available for new project and task assignments.</li>
+                                <li>All their historical log entries, reports, and details will remain intact.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: var(--light-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 25px;">
+                    <h4 style="margin: 0 0 10px 0; font-size: 14px; text-transform: uppercase; color: var(--text-light); letter-spacing: 0.5px;">User Details</h4>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                        <tr>
+                            <td style="padding: 5px 0; color: var(--text-light); width: 35%;">Full Name:</td>
+                            <td style="padding: 5px 0; font-weight: 500;">{{ user.get_full_name|default:"—" }}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 5px 0; color: var(--text-light);">Email:</td>
+                            <td style="padding: 5px 0; font-weight: 500;">{{ user.email|default:"—" }}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 5px 0; color: var(--text-light);">System Role:</td>
+                            <td style="padding: 5px 0;">
+                                {% if user.profile %}
+                                    <span class="badge badge-{{ user.profile.role }}">{{ user.profile.get_role_display }}</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">N/A</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <form method="post" style="display: flex; justify-content: flex-end; gap: 15px;">
+                    {% csrf_token %}
+                    <a href="{% url 'deleted_users' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, var(--success-color) 0%, #38f9d7 100%); border: none;">
+                        <i class="fas fa-check"></i> Confirm Restore
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

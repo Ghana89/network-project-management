@@ -1,44 +1,408 @@
-{% extends "base.html" %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - NetworkPM</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-{% block title %}Login - Network Project Management{% endblock %}
+        :root {
+            --primary: #0052CC;
+            --primary-dark: #003399;
+            --gray-50: #F7F8FA;
+            --gray-100: #EBECF0;
+            --gray-200: #DFE1E6;
+            --gray-600: #44546F;
+            --gray-900: #161B22;
+            --danger: #AE2A19;
+        }
 
-{% block content %}
-<div class="auth-container">
-    <div class="auth-card">
-        <div class="auth-header">
-            <h1>Network Project Management</h1>
-            <p>Login to your account</p>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0052CC 0%, #003399 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            max-width: 1000px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(9,30,66,.3);
+        }
+
+        .login-left {
+            background: linear-gradient(135deg, #0052CC 0%, #003399 100%);
+            color: white;
+            padding: 60px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .login-left h2 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .login-left p {
+            font-size: 16px;
+            line-height: 1.6;
+            opacity: 0.95;
+            margin-bottom: 40px;
+        }
+
+        .benefits {
+            list-style: none;
+        }
+
+        .benefits li {
+            margin-bottom: 16px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            font-size: 14px;
+        }
+
+        .benefits li:before {
+            content: '✓';
+            font-weight: 700;
+            font-size: 18px;
+            min-width: 24px;
+        }
+
+        .login-right {
+            padding: 60px 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .login-header {
+            margin-bottom: 40px;
+        }
+
+        .login-header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--gray-900);
+            margin-bottom: 8px;
+        }
+
+        .login-header p {
+            font-size: 14px;
+            color: var(--gray-600);
+        }
+
+        .role-selector {
+            margin-bottom: 32px;
+        }
+
+        .role-selector-label {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--gray-600);
+            margin-bottom: 12px;
+            display: block;
+        }
+
+        .roles-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .role-btn {
+            padding: 12px;
+            border: 2px solid var(--gray-200);
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--gray-900);
+        }
+
+        .role-btn:hover {
+            border-color: var(--primary);
+            background: #0052CC10;
+        }
+
+        .role-btn.active {
+            border-color: var(--primary);
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0,82,204,0.3);
+        }
+
+        .error-message {
+            background: #ffeceb;
+            color: var(--danger);
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--gray-900);
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--gray-200);
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0,82,204,0.1);
+        }
+
+        .password-wrapper {
+            position: relative;
+        }
+
+        .password-toggle {
+            position: absolute;
+            right: 12px;
+            top: 10px;
+            background: none;
+            border: none;
+            color: var(--gray-600);
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .password-toggle:hover {
+            color: var(--primary);
+        }
+
+        .form-input.with-icon {
+            padding-right: 40px;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 8px;
+        }
+
+        .login-btn:hover {
+            background: var(--primary-dark);
+            box-shadow: 0 4px 12px rgba(0,82,204,0.3);
+        }
+
+        .login-btn:active {
+            transform: scale(0.98);
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        .back-link a {
+            font-size: 13px;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-link a:hover {
+            text-decoration: underline;
+        }
+
+        .forgot-link {
+            display: inline-block;
+            margin-top: 8px;
+            font-size: 13px;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .forgot-link:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .login-container {
+                grid-template-columns: 1fr;
+            }
+
+            .login-left {
+                display: none;
+            }
+
+            .login-right {
+                padding: 40px 24px;
+            }
+
+            .roles-group {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <!-- Left Panel -->
+        <div class="login-left">
+            <h2>Welcome Back</h2>
+            <p>Manage your projects efficiently with NetworkPM. Collaborate with your team, track progress, and deliver on time.</p>
+            <ul class="benefits">
+                <li>Real-time project tracking</li>
+                <li>Team collaboration tools</li>
+                <li>Advanced analytics</li>
+                <li>Resource management</li>
+                <li>Smart notifications</li>
+            </ul>
         </div>
 
-        {% if error %}
-        <div class="alert alert-danger">{{ error }}</div>
-        {% endif %}
-
-        <form method="post" class="auth-form">
-            {% csrf_token %}
-            
-            <div class="form-group">
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username" required class="form-control">
+        <!-- Right Panel -->
+        <div class="login-right">
+            <div class="login-header">
+                <h1>Sign In</h1>
+                <p>Choose your role and enter your credentials</p>
             </div>
 
-            <div class="form-group">
-                <label for="password">Password</label>
-                <div class="password-container" style="position: relative;">
-                    <input type="password" id="password" name="password" required class="form-control" style="padding-right: 40px;">
-                    <span class="password-toggle" onclick="togglePassword('password', this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #666;">
-                        <i class="fas fa-eye"></i>
-                    </span>
+            {% if error %}
+            <div class="error-message">
+                <i class="fas fa-circle-exclamation"></i>
+                <span>{{ error }}</span>
+            </div>
+            {% endif %}
+
+            <!-- Role Selector -->
+            <div class="role-selector">
+                <label class="role-selector-label">Select Your Role</label>
+                <div class="roles-group">
+                    <button type="button" class="role-btn" onclick="selectRole(event, 'admin')">
+                        <i class="fas fa-crown" style="margin-right: 6px;"></i> Admin
+                    </button>
+                    <button type="button" class="role-btn" onclick="selectRole(event, 'project_manager')">
+                        <i class="fas fa-chart-gantt" style="margin-right: 6px;"></i> Manager
+                    </button>
+                    <button type="button" class="role-btn" onclick="selectRole(event, 'engineer')">
+                        <i class="fas fa-hammer" style="margin-right: 6px;"></i> Engineer
+                    </button>
+                    <button type="button" class="role-btn" onclick="selectRole(event, 'viewer')">
+                        <i class="fas fa-eye" style="margin-right: 6px;"></i> Viewer
+                    </button>
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-primary btn-block">Login</button>
-        </form>
+            <!-- Login Form -->
+            <form method="POST" id="loginForm">
+                {% csrf_token %}
+                <input type="hidden" id="roleInput" name="selected-role" value="">
 
-        <script>
-        function togglePassword(inputId, iconSpan) {
-            const input = document.getElementById(inputId);
-            const icon = iconSpan.querySelector('i');
+                <div class="form-group">
+                    <label class="form-label">Username or Email</label>
+                    <input type="text" id="username" name="username" class="form-input" placeholder="Enter your username or email" required autofocus>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="password" name="password" class="form-input with-icon" placeholder="Enter your password" required>
+                        <button type="button" class="password-toggle" onclick="togglePassword()">
+                            <i class="fas fa-eye" id="passwordIcon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="login-btn">Sign In</button>
+                <a href="{% url 'forgot_password' %}" class="forgot-link">Forgot password?</a>
+            </form>
+
+            <div class="back-link">
+                <a href="/">← Back to Home</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedRole = 'admin';
+
+        // Set default role on load
+        document.addEventListener('DOMContentLoaded', function() {
+            selectRole({ target: document.querySelector('.role-btn') }, 'admin');
+        });
+
+        function selectRole(event, role) {
+            // Remove active class from all buttons
+            document.querySelectorAll('.role-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Add active class to clicked button
+            if (event.target.classList) {
+                event.target.classList.add('active');
+            } else if (event.target.closest('.role-btn')) {
+                event.target.closest('.role-btn').classList.add('active');
+            }
+
+            // Set selected role
+            selectedRole = role;
+            document.getElementById('roleInput').value = role;
+
+            // Focus on username
+            document.getElementById('username').focus();
+        }
+
+        function togglePassword() {
+            const input = document.getElementById('password');
+            const icon = document.getElementById('passwordIcon');
+            
             if (input.type === 'password') {
                 input.type = 'text';
                 icon.classList.remove('fa-eye');
@@ -49,73 +413,14 @@
                 icon.classList.add('fa-eye');
             }
         }
-        </script>
 
-        <br>
-    </div>
-</div>
-
-<style>
-.auth-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.auth-card {
-    background: white;
-    padding: 40px;
-    border-radius: 10px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-    width: 100%;
-    max-width: 400px;
-}
-
-.auth-header {
-    text-align: center;
-    margin-bottom: 30px;
-}
-
-.auth-header h1 {
-    font-size: 24px;
-    margin-bottom: 10px;
-    color: #333;
-}
-
-.auth-header p {
-    color: #666;
-}
-
-.auth-form .form-group {
-    margin-bottom: 20px;
-}
-
-.auth-form label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: 500;
-    color: #333;
-}
-
-.auth-form .form-control {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 14px;
-}
-
-.auth-footer {
-    text-align: center;
-    margin-top: 20px;
-    color: #666;
-}
-
-.auth-footer a {
-    color: #667eea;
-    text-decoration: none;
-}
-</style>
-{% endblock %}
+        // Handle form submission
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            if (!selectedRole) {
+                e.preventDefault();
+                alert('Please select a role first');
+            }
+        });
+    </script>
+</body>
+</html>

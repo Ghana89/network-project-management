@@ -3,11 +3,20 @@
 {% block title %}User Management - Network Project Management{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>User Management</h2>
-    <a href="{% url 'user_create' %}" class="btn btn-primary">
-        <i class="fas fa-plus"></i> Create User
-    </a>
+<div class="page-header mb-4">
+    <div>
+        <h1>User Management</h1>
+        <p class="text-muted">Manage active system users, roles, and administrative permissions.</p>
+    </div>
+    <div class="header-actions">
+        <a href="{% url 'deleted_users' %}" class="btn btn-secondary">
+            <i class="fas fa-trash-restore-alt"></i> Deleted Users 
+            <span class="badge-pill-count ml-1">{{ deleted_count }}</span>
+        </a>
+        <a href="{% url 'user_create' %}" class="btn btn-primary">
+            <i class="fas fa-user-plus"></i> Create User
+        </a>
+    </div>
 </div>
 
 <div class="card">
@@ -21,26 +30,43 @@
                         <th>Email</th>
                         <th>Role</th>
                         <th>Date Joined</th>
+                        <th class="text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for user in users %}
                     <tr>
-                        <td>{{ user.username }}</td>
-                        <td>{{ user.get_full_name }}</td>
-                        <td>{{ user.email }}</td>
+                        <td><strong>{{ user.username }}</strong></td>
+                        <td>{{ user.get_full_name|default:"—" }}</td>
+                        <td>{{ user.email|default:"—" }}</td>
                         <td>
                             {% if user.profile %}
-                                <span class="badge badge-info">{{ user.profile.get_role_display }}</span>
+                                <span class="badge badge-{{ user.profile.role }}">{{ user.profile.get_role_display }}</span>
                             {% else %}
                                 <span class="badge badge-secondary">N/A</span>
                             {% endif %}
                         </td>
                         <td>{{ user.date_joined|date:"M d, Y" }}</td>
+                        <td class="text-right">
+                            {% if user.is_superuser %}
+                                <span class="badge badge-warning">Superuser</span>
+                            {% else %}
+                                {% if user != request.user %}
+                                    <a href="{% url 'user_edit' user.id %}" class="action-btn action-btn-info" data-tooltip="Edit User">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'user_soft_delete' user.id %}" class="action-btn action-btn-danger" data-tooltip="Soft Delete User">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted small"><em>Current Admin</em></span>
+                                {% endif %}
+                            {% endif %}
+                        </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="text-center">No users found.</td>
+                        <td colspan="6" class="text-center text-muted">No users found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

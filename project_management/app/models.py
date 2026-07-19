@@ -46,6 +46,7 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='viewer')
     employee_id = models.CharField(max_length=50, unique=True, blank=True, null=True)
+    mobile_number = models.CharField(max_length=20, blank=True, null=True, help_text="Mobile number for the user")
     skills = models.TextField(blank=True, null=True, help_text="Comma-separated skills")
     department = models.CharField(max_length=100, blank=True, null=True)
     availability = models.CharField(max_length=50, default='available', choices=[
@@ -54,6 +55,10 @@ class UserProfile(models.Model):
         ('on_leave', 'On Leave'),
     ])
     profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
+    phone_number = models.CharField(max_length=20, blank=True, null=True, help_text="Mobile number with country code")
+    is_deleted = models.BooleanField(default=False, help_text="Soft delete flag")
+    deleted_at = models.DateTimeField(null=True, blank=True, help_text="Timestamp when user was deleted")
+    deleted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='deleted_users', help_text="Admin who deleted the user")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -63,6 +68,20 @@ class UserProfile(models.Model):
     class Meta:
         verbose_name = "User Profile"
         verbose_name_plural = "User Profiles"
+
+    def soft_delete(self, deleted_by_user=None):
+        """Soft delete the user profile"""
+        self.is_deleted = True
+        self.deleted_at = timezone.now()
+        self.deleted_by = deleted_by_user
+        self.save()
+
+    def restore(self):
+        """Restore a soft deleted user"""
+        self.is_deleted = False
+        self.deleted_at = None
+        self.deleted_by = None
+        self.save()
 
 
 class Project(models.Model):
@@ -239,7 +258,8 @@ class Notification(models.Model):
 
 class ProjectLog(models.Model):
     """Audit log for project activities"""
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='logs')
+    # project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='logs')
+    project = models.ForeignKey(Project, on_delete=models.SET_NULL, null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     action = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -249,6 +269,20 @@ class ProjectLog(models.Model):
         ordering = ['-timestamp']
         verbose_name = "Project Log"
         verbose_name_plural = "Project Logs"
+
+    from django.db.models.signals import post_save
+    from django.dispatch import receiver
+
+    @receiver(post_save, sender=User)
+    def create_or_ensure_user_profile(sender, instance, created, **kwargs):
+        if created:
+            try:
+                UserProfile.objects.create(user=instance)
+            except Exception:
+                # In rare cases (migrations, partial setups) silently ignore
+                pass
+        else:
+            UserProfile.objects.get_or_create(user=instance)
 
     def __str__(self):
         return f"{self.project.name} - {self.action}"

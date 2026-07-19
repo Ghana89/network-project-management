@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Confirm Deletion - Network Project Management{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-3">
+    <div class="col-md-6" style="max-width: 600px; margin: 0 auto;">
+        <div class="card" style="border-top: 4px solid var(--danger-color);">
+            <div class="card-header" style="background: rgba(211, 47, 47, 0.02);">
+                <h3 style="color: var(--danger-color); display: flex; align-items: center; gap: 10px; margin: 0;">
+                    <i class="fas fa-exclamation-triangle"></i> Soft Delete User Profile
+                </h3>
+            </div>
+            
+            <div class="card-body">
+                <p>Are you sure you want to soft delete the user <strong>{{ user.username }}</strong>?</p>
+                
+                <div class="alert alert-danger" style="margin: 20px 0; background: rgba(211, 47, 47, 0.05); border-left: 4px solid var(--danger-color); color: #c62828;">
+                    <div style="display: flex; gap: 10px; align-items: flex-start;">
+                        <i class="fas fa-info-circle" style="margin-top: 4px;"></i>
+                        <div>
+                            <strong>What happens when you soft delete a user?</strong>
+                            <ul style="margin: 5px 0 0 20px; padding: 0;">
+                                <li>The user will be immediately logged out and disabled from logging in.</li>
+                                <li>They will no longer appear on resources or task assignment dropdowns.</li>
+                                <li>Any active task assignments will remain, but the resource will be marked unavailable.</li>
+                                <li>You can restore this user at any time from the **Deleted Users** page.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: var(--light-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; margin-bottom: 25px;">
+                    <h4 style="margin: 0 0 10px 0; font-size: 14px; text-transform: uppercase; color: var(--text-light); letter-spacing: 0.5px;">User Details</h4>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                        <tr>
+                            <td style="padding: 5px 0; color: var(--text-light); width: 35%;">Full Name:</td>
+                            <td style="padding: 5px 0; font-weight: 500;">{{ user.get_full_name|default:"—" }}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 5px 0; color: var(--text-light);">Email:</td>
+                            <td style="padding: 5px 0; font-weight: 500;">{{ user.email|default:"—" }}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 5px 0; color: var(--text-light);">System Role:</td>
+                            <td style="padding: 5px 0;">
+                                {% if user.profile %}
+                                    <span class="badge badge-{{ user.profile.role }}">{{ user.profile.get_role_display }}</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">N/A</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <form method="post" style="display: flex; justify-content: flex-end; gap: 15px;">
+                    {% csrf_token %}
+                    <a href="{% url 'user_management' %}" class="btn btn-secondary">
+                        <i class="fas fa-times"></i> Cancel
+                    </a>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-trash-alt"></i> Confirm Soft Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

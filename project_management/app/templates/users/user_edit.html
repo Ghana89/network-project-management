@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Edit User - Network Project Management{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h3 class="mb-0">Edit User: {{ user.username }}</h3>
+                <a href="{% url 'user_management' %}" class="btn btn-outline-secondary btn-sm">Back to Users</a>
+            </div>
+            <div class="card-body">
+                {% if user.is_superuser %}
+                <div class="alert alert-warning">
+                    <strong>Notice:</strong> This is a superuser account. Some editing may be restricted.
+                </div>
+                {% endif %}
+
+                <form method="post" class="needs-validation" novalidate>
+                    {% csrf_token %}
+                    
+                    {% for field in form %}
+                    <div class="form-group mb-3">
+                        <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                        
+                        {{ field }}
+
+                        {% if field.help_text %}
+                        <small class="form-text text-muted d-block mt-1">{{ field.help_text }}</small>
+                        {% endif %}
+                        
+                        {% if field.errors %}
+                        <div class="text-danger small mt-1">
+                            {{ field.errors|join:", " }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary">Update User</button>
+                        <a href="{% url 'user_management' %}" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Add form-control class to all inputs
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputs = document.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => {
+            if (!input.classList.contains('form-control') && !input.classList.contains('form-select')) {
+                input.classList.add('form-control');
+            }
+        });
+    });
+</script>
+{% endblock %}

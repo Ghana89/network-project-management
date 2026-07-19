@@ -4,13 +4,23 @@
 
 {% block content %}
 <div class="dashboard">
-    <h1>Dashboard</h1>
+    <div class="page-header">
+        <h1>Dashboard Overview</h1>
+        <div class="header-actions">
+            {% if user.profile.role == "admin" %}
+            <a href="{% url 'user_management' %}" class="btn btn-primary"><i class="fas fa-users-cog"></i> Manage Users</a>
+            {% endif %}
+            {% if user.profile.role in "admin,project_manager" %}
+            <a href="{% url 'project_create' %}" class="btn btn-secondary"><i class="fas fa-plus"></i> New Project</a>
+            {% endif %}
+        </div>
+    </div>
     
     <div class="stats-grid">
         {% if user.profile.role in "admin,project_manager" %}
-        <div class="stat-card">
-            <div class="stat-icon" style="background: #667eea;">
-                <i class="icon-briefcase"></i>
+        <div class="stat-card stat-projects">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <i class="fas fa-folder-open"></i>
             </div>
             <div class="stat-content">
                 <h3>{{ total_projects }}</h3>
@@ -18,9 +28,9 @@
             </div>
         </div>
 
-        <div class="stat-card">
-            <div class="stat-icon" style="background: #f093fb;">
-                <i class="icon-hourglass"></i>
+        <div class="stat-card stat-active">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <i class="fas fa-project-diagram"></i>
             </div>
             <div class="stat-content">
                 <h3>{{ active_projects }}</h3>
@@ -28,19 +38,19 @@
             </div>
         </div>
 
-        <div class="stat-card">
-            <div class="stat-icon" style="background: #4facfe;">
-                <i class="icon-users"></i>
+        <div class="stat-card stat-users">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <i class="fas fa-users"></i>
             </div>
             <div class="stat-content">
-                <h3>{{ total_users|default:"" }}</h3>
+                <h3>{{ total_users|default:"0" }}</h3>
                 <p>Total Users</p>
             </div>
         </div>
 
-        <div class="stat-card">
-            <div class="stat-icon" style="background: #43e97b;">
-                <i class="icon-alert"></i>
+        <div class="stat-card stat-overdue">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%);">
+                <i class="fas fa-exclamation-triangle"></i>
             </div>
             <div class="stat-content">
                 <h3>{{ overdue_tasks.count }}</h3>
@@ -50,9 +60,9 @@
         {% endif %}
 
         {% if user.profile.role == 'engineer' %}
-        <div class="stat-card">
-            <div class="stat-icon" style="background: #667eea;">
-                <i class="icon-task"></i>
+        <div class="stat-card stat-projects">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <i class="fas fa-tasks"></i>
             </div>
             <div class="stat-content">
                 <h3>{{ assigned_tasks.count }}</h3>
@@ -60,9 +70,9 @@
             </div>
         </div>
 
-        <div class="stat-card">
-            <div class="stat-icon" style="background: #43e97b;">
-                <i class="icon-check"></i>
+        <div class="stat-card stat-completed">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <i class="fas fa-check-circle"></i>
             </div>
             <div class="stat-content">
                 <h3>{{ completed_tasks }}</h3>
@@ -74,7 +84,7 @@
 
     <div class="dashboard-content">
         <div class="dashboard-section">
-            <h2>Upcoming Milestones</h2>
+            <h2><i class="fas fa-calendar-alt" style="color: var(--primary-color);"></i> Upcoming Milestones</h2>
             {% if upcoming_milestones %}
             <table class="table">
                 <thead>
@@ -97,7 +107,7 @@
                             <div class="progress-bar">
                                 <div class="progress" style="width: {{ milestone.completion_percentage }}%"></div>
                             </div>
-                            <span>{{ milestone.completion_percentage }}%</span>
+                            <span style="font-size: 11px; color: var(--text-light); font-weight: 500;">{{ milestone.completion_percentage }}%</span>
                         </td>
                     </tr>
                     {% endfor %}
@@ -110,7 +120,7 @@
 
         {% if overdue_tasks %}
         <div class="dashboard-section">
-            <h2>Overdue Tasks</h2>
+            <h2><i class="fas fa-exclamation-circle" style="color: var(--danger-color);"></i> Overdue Tasks</h2>
             <table class="table">
                 <thead>
                     <tr>
@@ -138,7 +148,7 @@
 
         {% if overdue_milestones %}
         <div class="dashboard-section">
-            <h2>Overdue Milestones</h2>
+            <h2><i class="fas fa-calendar-times" style="color: var(--danger-color);"></i> Overdue Milestones</h2>
             <table class="table">
                 <thead>
                     <tr>

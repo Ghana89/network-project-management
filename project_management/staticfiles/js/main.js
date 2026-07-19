@@ -9,6 +9,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize tooltips if needed
     initializeTooltips();
+    
+    // Initialize mobile menu toggle
+    const mobileBtn = document.getElementById('mobile-menu-btn');
+    const navbarMenu = document.getElementById('navbar-menu');
+    const navbarRight = document.getElementById('navbar-right');
+    
+    if (mobileBtn && navbarMenu && navbarRight) {
+        mobileBtn.addEventListener('click', function() {
+            navbarMenu.classList.toggle('active');
+            navbarRight.classList.toggle('active');
+        });
+    }
 });
 
 /**

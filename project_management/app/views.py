@@ -3,10 +3,20 @@ from django.http import JsonResponse, HttpResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
-from django.views.decorators.http import require_http_methods
+from django.contrib.auth.forms import SetPasswordForm
+from django.contrib.auth.tokens import default_token_generator
+from django.contrib import messages
+from django.core.mail import EmailMessage, get_connection, send_mail
+import logging
+import smtplib
 from django.db.models import Q, Count, Avg
 from django.utils import timezone
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.views.decorators.http import require_http_methods
 from django.core.paginator import Paginator
+from django.conf import settings
+from django.urls import reverse
 from datetime import timedelta
 from io import BytesIO
 from reportlab.lib.pagesizes import letter, A4
@@ -17,13 +27,16 @@ from reportlab.lib.units import inch
 from .models import (
     Project, Milestone, SubTask, Resource, UserProfile, Notification, ProjectLog,
     PROJECT_STATUS_CHOICES, MILESTONE_STATUS_CHOICES, TASK_STATUS_CHOICES,
-    PRIORITY_CHOICES
+    PRIORITY_CHOICES, ROLE_CHOICES
 )
 from .forms import (
-    AdminUserCreationForm, UserProfileForm, ProjectForm, MilestoneForm,
-    SubTaskForm, ResourceForm
+    AdminUserCreationForm, AdminUserEditForm, ForgotPasswordForm, UserProfileForm, ProjectForm,
+    MilestoneForm, SubTaskForm, ResourceForm
 )
 
+
+import logging
+logger = logging.getLogger(__name__)
 
 # Helper functions to check user role
 def is_admin(user):
@@ -38,12 +51,24 @@ def is_engineer(user):
     return user.profile.role in ['engineer', 'project_manager', 'admin']
 
 
+# Home View
+def home(request):
+    """Home page for unauthenticated users"""
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    return render(request, 'home.html')
+
+
 # Authentication Views
 @login_required
 @user_passes_test(is_admin)
 def user_management(request):
-    users = User.objects.all().order_by('-date_joined')
-    context = {'users': users}
+    active_users = User.objects.filter(profile__is_deleted=False).order_by('-date_joined')
+    deleted_count = UserProfile.objects.filter(is_deleted=True).count()
+    context = {
+        'users': active_users,
+        'deleted_count': deleted_count,
+    }
     return render(request, 'users/user_list.html', context)
 
 
@@ -51,16 +76,140 @@ def user_management(request):
 @user_passes_test(is_admin)
 def user_create(request):
     if request.method == 'POST':
-        form = AdminUserCreationForm(request.POST)
+        form = AdminUserCreationForm(request.POST, current_user=request.user)
         if form.is_valid():
             user = form.save()
             role = form.cleaned_data.get('role')
-            # Create profile with selected role
-            UserProfile.objects.create(user=user, role=role)
+            # Update profile with selected role (post_save signal creates it automatically)
+            profile, created = UserProfile.objects.get_or_create(user=user, defaults={'role': role})
+            if not created:
+                profile.role = role
+                profile.save()
+
+            # Send welcome email with password-setup link when an email is provided
+            if user.email:
+                uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+                token = default_token_generator.make_token(user)
+                setup_link = request.build_absolute_uri(
+                    reverse('password_reset_confirm', kwargs={'uidb64': uidb64, 'token': token})
+                )
+                subject = 'Welcome to Network Project Management — set your password'
+                message = (
+                    f'Hi {user.get_full_name() or user.username},\n\n'
+                    f'An account was created for you at Network Project Management.\n'
+                    f'Username: {user.username}\n\n'
+                    f'Please set your password using the link below:\n{setup_link}\n\n'
+                    'If you did not expect this email, please contact the administrator.'
+                )
+
+                email_sent = False
+                try:
+                    logger.info(f'Sending welcome email to {user.email} (backend: {settings.EMAIL_BACKEND})')
+                    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False)
+                    email_sent = True
+                    logger.info(f'Welcome email sent successfully to {user.email}')
+                    messages.success(request, f'User created successfully! Welcome email sent to {user.email}.')
+                except Exception as e:
+                    logger.exception(f'Failed to send welcome email to {user.email}: {str(e)}')
+                    
+                    # In DEBUG, also print to console backend as a fallback
+                    if settings.DEBUG and settings.EMAIL_BACKEND == 'django.core.mail.backends.smtp.EmailBackend':
+                        try:
+                            logger.info('Attempting fallback to console backend...')
+                            console_connection = get_connection('django.core.mail.backends.console.EmailBackend')
+                            email_message = EmailMessage(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
+                            console_connection.send_messages([email_message])
+                            email_sent = True
+                            logger.info(f'Welcome email printed to console for {user.email}')
+                        except Exception as fallback_e:
+                            logger.exception(f'Fallback console backend also failed: {str(fallback_e)}')
+                            email_sent = False
+
+                if not email_sent:
+                    messages.warning(request, f'User created but welcome email to {user.email} could not be sent. Please contact support.')
+            else:
+                messages.info(request, f'User created but no email address provided.')
+
+
             return redirect('user_management')
     else:
-        form = AdminUserCreationForm()
+        form = AdminUserCreationForm(current_user=request.user)
     return render(request, 'users/user_create.html', {'form': form})
+
+
+@login_required
+@user_passes_test(is_admin)
+def user_edit(request, user_id):
+    """Edit user details and role (cannot edit superuser accounts)"""
+    user_to_edit = get_object_or_404(User, id=user_id)
+    
+    # Prevent editing superuser accounts
+    if user_to_edit.is_superuser:
+        messages.error(request, 'Superuser accounts cannot be edited by regular admins.')
+        return redirect('user_management')
+    
+    # Get current role before edit
+    old_role = user_to_edit.profile.role if hasattr(user_to_edit, 'profile') else None
+    
+    if request.method == 'POST':
+        form = AdminUserEditForm(request.POST, instance=user_to_edit, user_being_edited=user_to_edit, current_user=request.user)
+        if form.is_valid():
+            user = form.save()
+            role = form.cleaned_data.get('role')
+            
+            # Update profile role
+            profile, _ = UserProfile.objects.get_or_create(user=user, defaults={'role': role})
+            profile.role = role
+            profile.save()
+            
+            messages.success(request, f'User {user.username} updated successfully.')
+            
+            # Send email notification if user has email
+            if user.email:
+                role_changed = old_role != role
+                subject = 'Your Network Project Management Account Was Updated'
+                message = (
+                    f'Hi {user.get_full_name() or user.username},\n\n'
+                    f'Your account at Network Project Management was updated.\n\n'
+                    f'Updated Details:\n'
+                    f'  • Username: {user.username}\n'
+                    f'  • Email: {user.email}\n'
+                    f'  • Name: {user.get_full_name() or "—"}\n'
+                )
+                
+                if role_changed:
+                    message += f'  • Role: {dict(ROLE_CHOICES).get(role, role)} (changed from {dict(ROLE_CHOICES).get(old_role, old_role)})\n'
+                else:
+                    message += f'  • Role: {dict(ROLE_CHOICES).get(role, role)}\n'
+                
+                message += f'\n  • Account Status: {"Active" if user.is_active else "Inactive"}\n'
+                message += '\nIf you have questions about these changes, please contact the administrator.'
+                
+                try:
+                    logger.info(f'Sending account update email to {user.email}')
+                    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False)
+                    logger.info(f'Account update email sent successfully to {user.email}')
+                    if role_changed:
+                        messages.info(request, f'Update notification email sent to {user.email}.')
+                except Exception as e:
+                    logger.exception(f'Failed to send account update email to {user.email}: {str(e)}')
+                    
+                    # Fallback to console backend in DEBUG mode
+                    if settings.DEBUG and settings.EMAIL_BACKEND == 'django.core.mail.backends.smtp.EmailBackend':
+                        try:
+                            logger.info('Attempting fallback to console backend...')
+                            console_connection = get_connection('django.core.mail.backends.console.EmailBackend')
+                            email_message = EmailMessage(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
+                            console_connection.send_messages([email_message])
+                            logger.info(f'Account update email printed to console for {user.email}')
+                        except Exception as fallback_e:
+                            logger.exception(f'Fallback console backend also failed: {str(fallback_e)}')
+            
+            return redirect('user_management')
+    else:
+        form = AdminUserEditForm(instance=user_to_edit, user_being_edited=user_to_edit, current_user=request.user)
+    
+    return render(request, 'users/user_edit.html', {'form': form, 'user': user_to_edit})
 
 
 def user_login(request):
@@ -68,9 +217,14 @@ def user_login(request):
         return redirect('dashboard')
         
     if request.method == 'POST':
-        username = request.POST.get('username')
-        password = request.POST.get('password')
+        username = request.POST.get('username', '').strip()
+        password = request.POST.get('password', '')
         user = authenticate(request, username=username, password=password)
+
+        if user is None and username:
+            user_by_email = User.objects.filter(email__iexact=username).first()
+            if user_by_email:
+                user = authenticate(request, username=user_by_email.username, password=password)
         
         if user is not None:
             login(request, user)
@@ -83,24 +237,160 @@ def user_login(request):
     return render(request, 'auth/login.html')
 
 
+def forgot_password(request):
+    if request.method == 'POST':
+        form = ForgotPasswordForm(request.POST)
+        if form.is_valid():
+            email = form.cleaned_data['email']
+            user = User.objects.filter(email__iexact=email).first()
+            if user:
+                uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+                token = default_token_generator.make_token(user)
+                reset_link = request.build_absolute_uri(
+                    reverse('password_reset_confirm', kwargs={'uidb64': uidb64, 'token': token})
+                )
+                subject = 'Reset your Network Project Management password'
+                message = (
+                    f'Hi {user.get_full_name() or user.username},\n\n'
+                    f'Use the link below to reset your password:\n{reset_link}\n\n'
+                    'If you did not request this, you can safely ignore this email.'
+                )
+                email_sent = False
+                try:
+                    send_mail(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email], fail_silently=False)
+                    email_sent = True
+                except (smtplib.SMTPException, Exception) as exc:
+                    logger = logging.getLogger(__name__)
+                    logger.exception('Failed to send password reset email for %s', user.email)
+                    # If in DEBUG and SMTP failed, fall back to console backend for local testing.
+                    if settings.DEBUG and settings.EMAIL_BACKEND == 'django.core.mail.backends.smtp.EmailBackend':
+                        try:
+                            console_connection = get_connection('django.core.mail.backends.console.EmailBackend')
+                            email_message = EmailMessage(subject, message, settings.DEFAULT_FROM_EMAIL, [user.email])
+                            console_connection.send_messages([email_message])
+                            email_sent = True
+                        except Exception:
+                            email_sent = False
+                    else:
+                        email_sent = False
+
+            # If email was sent show generic success; if sending failed show a friendly error
+            if 'email_sent' in locals() and not email_sent:
+                return render(request, 'auth/forgot_password.html', {
+                    'form': form,
+                    'success': False,
+                    'email': email,
+                    'error': 'Unable to send reset email right now. Please contact support or try again later.'
+                })
+
+            return render(request, 'auth/forgot_password.html', {
+                'form': form,
+                'success': True,
+                'email': email,
+            })
+    else:
+        form = ForgotPasswordForm()
+
+    return render(request, 'auth/forgot_password.html', {'form': form, 'success': False})
+
+
+def password_reset_confirm(request, uidb64, token):
+    try:
+        uid = force_str(urlsafe_base64_decode(uidb64))
+        user = User.objects.get(pk=uid)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if user is not None and default_token_generator.check_token(user, token):
+        if request.method == 'POST':
+            form = SetPasswordForm(user, request.POST)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Your password has been reset successfully. Please sign in with your new password.')
+                return redirect('login')
+        else:
+            form = SetPasswordForm(user)
+
+        return render(request, 'auth/password_reset_confirm.html', {'form': form, 'validlink': True})
+
+    return render(request, 'auth/password_reset_confirm.html', {'validlink': False})
+
+
 def user_logout(request):
     logout(request)
     return redirect('login')
 
 
+# User Soft Delete Views
+@login_required
+@user_passes_test(is_admin)
+def user_soft_delete(request, user_id):
+    """Soft delete a user"""
+    user = get_object_or_404(User, id=user_id)
+    
+    if request.method == 'POST':
+        # Prevent admin from deleting themselves
+        if user == request.user:
+            return redirect('user_management')
+        
+        user.profile.soft_delete(deleted_by_user=request.user)
+        ProjectLog.objects.create(
+            project=None,
+            user=request.user,
+            action='User Deleted',
+            description=f'User {user.username} has been soft deleted'
+        )
+        return redirect('user_management')
+    
+    return render(request, 'users/user_confirm_delete.html', {'user': user})
+
+
+@login_required
+@user_passes_test(is_admin)
+def deleted_users(request):
+    """View deleted users"""
+    deleted_users_list = UserProfile.objects.filter(is_deleted=True).select_related('user', 'deleted_by')
+    context = {'deleted_users': deleted_users_list}
+    return render(request, 'users/deleted_users.html', context)
+
+
+@login_required
+@user_passes_test(is_admin)
+def restore_user(request, user_id):
+    """Restore a soft deleted user"""
+    user = get_object_or_404(User, id=user_id)
+    
+    if request.method == 'POST':
+        user.profile.restore()
+        ProjectLog.objects.create(
+            project=None,
+            user=request.user,
+            action='User Restored',
+            description=f'User {user.username} has been restored'
+        )
+        return redirect('deleted_users')
+    
+    return render(request, 'users/user_confirm_restore.html', {'user': user})
 
 
 # Dashboard View
 @login_required
 def dashboard(request):
-    user_profile = request.user.profile
+    # Ensure a profile exists for the user; fallback to a default role if needed.
+    user_profile, _ = UserProfile.objects.get_or_create(user=request.user, defaults={'role': 'viewer'})
     context = {}
 
     if user_profile.role == 'admin':
         context['total_projects'] = Project.objects.count()
         context['active_projects'] = Project.objects.exclude(status__in=['completed', 'archived']).count()
-        context['total_users'] = User.objects.count()
+        context['total_users'] = User.objects.filter(profile__is_deleted=False).count()
+        context['deleted_users'] = UserProfile.objects.filter(is_deleted=True).count()
         context['total_resources'] = Resource.objects.count()
+        context['overdue_tasks'] = SubTask.objects.filter(
+            due_date__lt=timezone.now().date(),
+            status__in=['not_started', 'in_progress', 'delayed']
+        )
+        context['completed_tasks'] = SubTask.objects.filter(status='completed').count()
     elif user_profile.role == 'project_manager':
         context['managed_projects'] = Project.objects.filter(project_manager=request.user)
         context['total_projects'] = context['managed_projects'].count()
@@ -115,11 +405,6 @@ def dashboard(request):
     context['upcoming_milestones'] = Milestone.objects.filter(
         baseline_delivery_date__gte=timezone.now().date()
     ).order_by('baseline_delivery_date')[:5]
-    
-    context['overdue_tasks'] = SubTask.objects.filter(
-        due_date__lt=timezone.now().date(),
-        status__in=['not_started', 'in_progress', 'delayed']
-    )
     
     context['overdue_milestones'] = Milestone.objects.filter(
         baseline_delivery_date__lt=timezone.now().date(),
@@ -136,33 +421,57 @@ def dashboard(request):
 @user_passes_test(is_project_manager)
 def project_list(request):
     if request.user.profile.role == 'admin':
-        projects = Project.objects.all()
+        projects_queryset = Project.objects.all()
     else:
-        projects = Project.objects.filter(project_manager=request.user)
+        projects_queryset = Project.objects.filter(project_manager=request.user)
 
-    # Filtering
+    # Calculate global dashboard metrics for the user's project portfolio
+    total_projects_count = projects_queryset.count()
+    active_projects_count = projects_queryset.exclude(status__in=['completed', 'archived']).count()
+    completed_projects_count = projects_queryset.filter(status='completed').count()
+    critical_projects_count = projects_queryset.filter(priority='critical').count()
+    
+    all_projects_list = list(projects_queryset)
+    average_progress = 0
+    if all_projects_list:
+        average_progress = round(sum(p.progress_percentage for p in all_projects_list) / len(all_projects_list))
+
+    # Filtering for the current search
     status = request.GET.get('status')
     priority = request.GET.get('priority')
     search = request.GET.get('search')
 
+    filtered_projects = projects_queryset
     if status:
-        projects = projects.filter(status=status)
+        filtered_projects = filtered_projects.filter(status=status)
     if priority:
-        projects = projects.filter(priority=priority)
+        filtered_projects = filtered_projects.filter(priority=priority)
     if search:
-        projects = projects.filter(Q(name__icontains=search) | Q(project_id__icontains=search))
+        filtered_projects = filtered_projects.filter(Q(name__icontains=search) | Q(project_id__icontains=search))
 
-    paginator = Paginator(projects, 10)
+    # Store full list of filtered projects for the Kanban Board view
+    board_projects = list(filtered_projects)
+
+    # Paginate for the Grid/List view
+    paginator = Paginator(filtered_projects, 9) # 9 fits perfectly in a 3-column grid
     page = request.GET.get('page')
-    projects = paginator.get_page(page)
+    paginated_projects = paginator.get_page(page)
 
     context = {
-        'projects': projects,
+        'projects': paginated_projects,
+        'board_projects': board_projects,
         'status_choices': PROJECT_STATUS_CHOICES,
         'priority_choices': PRIORITY_CHOICES,
         'search': search,
         'status': status,
         'priority': priority,
+        'metrics': {
+            'total': total_projects_count,
+            'active': active_projects_count,
+            'completed': completed_projects_count,
+            'critical': critical_projects_count,
+            'average_progress': average_progress,
+        }
     }
     return render(request, 'projects/project_list.html', context)
 
@@ -171,9 +480,15 @@ def project_list(request):
 @user_passes_test(is_project_manager)
 def project_create(request):
     if request.method == 'POST':
-        form = ProjectForm(request.POST)
+        form = ProjectForm(request.POST, current_user=request.user)
         if form.is_valid():
-            project = form.save()
+            project = form.save(commit=False)
+            
+            # If current user is a project manager, set them as the project manager
+            if request.user.profile.role == 'project_manager':
+                project.project_manager = request.user
+            
+            project.save()
             ProjectLog.objects.create(
                 project=project,
                 user=request.user,
@@ -182,7 +497,7 @@ def project_create(request):
             )
             return redirect('project_detail', project_id=project.id)
     else:
-        form = ProjectForm()
+        form = ProjectForm(current_user=request.user)
 
     return render(request, 'projects/project_form.html', {'form': form, 'title': 'Create Project'})
 
@@ -218,9 +533,15 @@ def project_edit(request, project_id):
         return redirect('dashboard')
 
     if request.method == 'POST':
-        form = ProjectForm(request.POST, instance=project)
+        form = ProjectForm(request.POST, instance=project, current_user=request.user)
         if form.is_valid():
-            project = form.save()
+            project = form.save(commit=False)
+            
+            # If current user is a project manager, ensure they're set as the manager
+            if request.user.profile.role == 'project_manager':
+                project.project_manager = request.user
+            
+            project.save()
             ProjectLog.objects.create(
                 project=project,
                 user=request.user,
@@ -229,7 +550,7 @@ def project_edit(request, project_id):
             )
             return redirect('project_detail', project_id=project.id)
     else:
-        form = ProjectForm(instance=project)
+        form = ProjectForm(instance=project, current_user=request.user)
 
     return render(request, 'projects/project_form.html', {'form': form, 'title': 'Edit Project', 'project': project})
 
@@ -721,3 +1042,31 @@ def api_project_progress(request, project_id):
         ]
     }
     return JsonResponse(data)
+
+def error_404(request, exception):
+    return render(request, 'error.html', {
+        'status_code': 404,
+        'title': 'Page Not Found',
+        'message': "Sorry, the page you're looking for doesn't exist or has been moved."
+    }, status=404)
+
+def error_500(request):
+    return render(request, 'error.html', {
+        'status_code': 500,
+        'title': 'Internal Server Error',
+        'message': 'Something went wrong on our end. Our team has been notified.'
+    }, status=500)
+
+def error_403(request, exception=None):
+    return render(request, 'error.html', {
+        'status_code': 403,
+        'title': 'Access Denied',
+        'message': "You don't have permission to view this resource."
+    }, status=403)
+
+def error_400(request, exception=None):
+    return render(request, 'error.html', {
+        'status_code': 400,
+        'title': 'Bad Request',
+        'message': 'The server could not understand the request due to invalid syntax.'
+    }, status=400)

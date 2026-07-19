@@ -18,18 +18,88 @@ class AdminUserCreationForm(UserCreationForm):
         model = User
         fields = ('username', 'email', 'first_name', 'last_name', 'role', 'password1', 'password2')
 
+    def __init__(self, *args, **kwargs):
+        current_user = kwargs.pop('current_user', None)
+        super().__init__(*args, **kwargs)
+        
+        # Only superusers can create admin accounts
+        if current_user and not current_user.is_superuser:
+            self.fields['role'].choices = [
+                choice for choice in ROLE_CHOICES 
+                if choice[0] != 'admin'
+            ]
+
     def clean_email(self):
         email = self.cleaned_data.get('email')
         if User.objects.filter(email=email).exists():
             raise forms.ValidationError("Email already registered")
         return email
 
+    def clean_role(self):
+        role = self.cleaned_data.get('role')
+        if role == 'admin':
+            raise forms.ValidationError("You don't have permission to create admin accounts.")
+        return role
+
+
+class AdminUserEditForm(forms.ModelForm):
+    """Form for admins to edit user details and role (but not superuser accounts)"""
+    role = forms.ChoiceField(choices=ROLE_CHOICES, required=True)
+    email = forms.EmailField(required=True)
+
+    class Meta:
+        model = User
+        fields = ('username', 'email', 'first_name', 'last_name', 'is_active')
+
+    def __init__(self, *args, **kwargs):
+        self.user_being_edited = kwargs.pop('user_being_edited', None)
+        self.current_user = kwargs.pop('current_user', None)
+        super().__init__(*args, **kwargs)
+        
+        # Pre-populate role from UserProfile if available
+        if self.user_being_edited and hasattr(self.user_being_edited, 'profile'):
+            self.fields['role'].initial = self.user_being_edited.profile.role
+        
+        # Only superusers can change roles to/from admin
+        if self.current_user and not self.current_user.is_superuser:
+            self.fields['role'].choices = [
+                choice for choice in ROLE_CHOICES 
+                if choice[0] != 'admin'
+            ]
+
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        # Allow the same email or check if new email is unique
+        if self.instance and email == self.instance.email:
+            return email
+        if User.objects.filter(email=email).exists():
+            raise forms.ValidationError("Email already registered")
+        return email
+
+    def clean_role(self):
+        role = self.cleaned_data.get('role')
+        if role == 'admin':
+            raise forms.ValidationError("You don't have permission to assign admin role.")
+        return role
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Prevent editing superuser accounts
+        if self.instance and self.instance.is_superuser:
+            raise forms.ValidationError("Superuser accounts cannot be edited.")
+        return cleaned_data
+
+
+class ForgotPasswordForm(forms.Form):
+    email = forms.EmailField(required=True, label='Email Address')
+
 
 class UserProfileForm(forms.ModelForm):
     class Meta:
         model = UserProfile
-        fields = ['employee_id', 'skills', 'department', 'availability', 'profile_photo']
+        fields = ['employee_id', 'phone_number', 'skills', 'department', 'availability', 'profile_photo']
         widgets = {
+            'mobile_number': forms.TextInput(attrs={'placeholder': 'Mobile number'}),
             'skills': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Comma-separated skills'}),
             'department': forms.TextInput(attrs={'placeholder': 'Department'}),
             'availability': forms.Select(),
@@ -40,24 +110,80 @@ class UserProfileForm(forms.ModelForm):
 class ProjectForm(forms.ModelForm):
     class Meta:
         model = Project
-        fields = ['project_id', 'name', 'customer_name', 'project_manager', 'start_date', 'end_date', 'status', 'priority', 'description', 'budget']
+        fields = [
+            'project_id', 'name', 'customer_name', 'project_manager',
+            'start_date', 'end_date', 'status', 'priority',
+            'description', 'budget'
+        ]
+
         widgets = {
-            'project_id': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Project ID'}),
-            'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Project Name'}),
-            'customer_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Customer Name'}),
-            'project_manager': forms.Select(attrs={'class': 'form-control'}),
-            'start_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'end_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'status': forms.Select(choices=PROJECT_STATUS_CHOICES, attrs={'class': 'form-control'}),
-            'priority': forms.Select(choices=PRIORITY_CHOICES, attrs={'class': 'form-control'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Project Description'}),
-            'budget': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': 'Budget'}),
+            'project_id': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Project ID'
+            }),
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Project Name'
+            }),
+            'customer_name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Customer Name'
+            }),
+            'project_manager': forms.Select(attrs={
+                'class': 'form-control'
+            }),
+            'start_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date'
+            }),
+            'end_date': forms.DateInput(attrs={
+                'class': 'form-control',
+                'type': 'date'
+            }),
+            'status': forms.Select(attrs={
+                'class': 'form-control'
+            }),
+            'priority': forms.Select(attrs={
+                'class': 'form-control'
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control',
+                'rows': 4
+            }),
+            'budget': forms.NumberInput(attrs={
+                'class': 'form-control'
+            }),
         }
 
     def __init__(self, *args, **kwargs):
+        self.current_user = kwargs.pop('current_user', None)
         super().__init__(*args, **kwargs)
-        self.fields['project_manager'].queryset = User.objects.filter(profile__role='project_manager')
 
+        self.fields['project_manager'].queryset = User.objects.filter(
+            profile__role='project_manager'
+        )
+
+        if (
+            self.current_user
+            and hasattr(self.current_user, 'profile')
+            and self.current_user.profile.role == 'project_manager'
+            and not self.current_user.is_superuser
+        ):
+            self.fields['project_manager'].initial = self.current_user
+            self.fields['project_manager'].disabled = True
+
+    def clean(self):
+        cleaned_data = super().clean()
+
+        if (
+            self.current_user
+            and hasattr(self.current_user, 'profile')
+            and self.current_user.profile.role == 'project_manager'
+            and not self.current_user.is_superuser
+        ):
+            cleaned_data['project_manager'] = self.current_user
+
+        return cleaned_data
 
 class MilestoneForm(forms.ModelForm):
     class Meta:

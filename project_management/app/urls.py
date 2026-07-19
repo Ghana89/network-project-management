@@ -2,14 +2,23 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    # Home Page
+    path('', views.home, name='home'),
+
     # Authentication & User Management
     path('login/', views.user_login, name='login'),
+    path('forgot-password/', views.forgot_password, name='forgot_password'),
+    path('reset-password/<uidb64>/<token>/', views.password_reset_confirm, name='password_reset_confirm'),
     path('users/', views.user_management, name='user_management'),
     path('users/create/', views.user_create, name='user_create'),
+    path('users/<int:user_id>/edit/', views.user_edit, name='user_edit'),
+    path('users/<int:user_id>/delete/', views.user_soft_delete, name='user_soft_delete'),
+    path('users/deleted/', views.deleted_users, name='deleted_users'),
+    path('users/<int:user_id>/restore/', views.restore_user, name='restore_user'),
     path('logout/', views.user_logout, name='logout'),
 
     # Dashboard
-    path('', views.dashboard, name='dashboard'),
+    path('dashboard/', views.dashboard, name='dashboard'),
 
     # Projects
     path('projects/', views.project_list, name='project_list'),
