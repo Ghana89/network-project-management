@@ -256,6 +256,30 @@ class Notification(models.Model):
         return f"{self.user.username} - {self.title}"
 
 
+class ProjectAccess(models.Model):
+    """Model to manage project access permissions for users"""
+    ACCESS_ROLES = [
+        ('engineer', 'Engineer/Resource'),
+        ('project_manager', 'Project Manager'),
+        ('stakeholder', 'Stakeholder/Viewer'),
+    ]
+    
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='access_permissions')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_access')
+    access_role = models.CharField(max_length=20, choices=ACCESS_ROLES, default='engineer')
+    granted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='granted_project_access')
+    granted_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('project', 'user')
+        verbose_name = "Project Access"
+        verbose_name_plural = "Project Access Permissions"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.project.name} ({self.get_access_role_display()})"
+
+
 class ProjectLog(models.Model):
     """Audit log for project activities"""
     # project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='logs')

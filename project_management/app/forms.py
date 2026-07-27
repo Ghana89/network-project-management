@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from .models import (
-    Project, Milestone, SubTask, Resource, UserProfile, 
+    Project, Milestone, SubTask, Resource, UserProfile, ProjectAccess,
     PROJECT_STATUS_CHOICES, MILESTONE_STATUS_CHOICES, TASK_STATUS_CHOICES,
     PRIORITY_CHOICES, ROLE_CHOICES
 )
@@ -220,6 +220,35 @@ class SubTaskForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['assigned_to'].queryset = User.objects.filter(profile__role__in=['engineer', 'project_manager'])
+
+
+class ProjectAccessForm(forms.ModelForm):
+    """Form for granting project access to users"""
+    user = forms.ModelChoiceField(
+        queryset=User.objects.exclude(is_superuser=True),
+        label='Select User',
+        widget=forms.Select(attrs={'class': 'form-control'}),
+        help_text='Select a user to grant project access'
+    )
+
+    class Meta:
+        model = ProjectAccess
+        fields = ['user', 'access_role']
+        widgets = {
+            'access_role': forms.Select(attrs={'class': 'form-control'}),
+        }
+        labels = {
+            'access_role': 'Access Role',
+        }
+
+    def __init__(self, *args, **kwargs):
+        self.project = kwargs.pop('project', None)
+        super().__init__(*args, **kwargs)
+        
+        # Filter out users who already have access to this project
+        if self.project:
+            existing_users = ProjectAccess.objects.filter(project=self.project).values_list('user_id', flat=True)
+            self.fields['user'].queryset = User.objects.exclude(id__in=existing_users).exclude(is_superuser=True)
 
 
 class ResourceForm(forms.ModelForm):

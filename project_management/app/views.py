@@ -25,13 +25,13 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 
 from .models import (
-    Project, Milestone, SubTask, Resource, UserProfile, Notification, ProjectLog,
+    Project, Milestone, SubTask, Resource, UserProfile, Notification, ProjectLog, ProjectAccess,
     PROJECT_STATUS_CHOICES, MILESTONE_STATUS_CHOICES, TASK_STATUS_CHOICES,
     PRIORITY_CHOICES, ROLE_CHOICES
 )
 from .forms import (
     AdminUserCreationForm, AdminUserEditForm, ForgotPasswordForm, UserProfileForm, ProjectForm,
-    MilestoneForm, SubTaskForm, ResourceForm
+    MilestoneForm, SubTaskForm, ResourceForm, ProjectAccessForm
 )
 
 
@@ -422,8 +422,13 @@ def dashboard(request):
 def project_list(request):
     if request.user.profile.role == 'admin':
         projects_queryset = Project.objects.all()
-    else:
+    elif request.user.profile.role == 'project_manager':
         projects_queryset = Project.objects.filter(project_manager=request.user)
+    else:
+        # Engineers and other roles: only see projects they have access to
+        projects_queryset = Project.objects.filter(
+            access_permissions__user=request.user
+        ).distinct()
 
     # Calculate global dashboard metrics for the user's project portfolio
     total_projects_count = projects_queryset.count()
@@ -522,6 +527,68 @@ def project_detail(request, project_id):
         'upcoming_milestones': milestones.filter(baseline_delivery_date__gte=timezone.now().date()),
     }
     return render(request, 'projects/project_detail.html', context)
+
+
+@login_required
+@user_passes_test(is_project_manager)
+def project_access_manage(request, project_id):
+    """Manage project access for users"""
+    project = get_object_or_404(Project, id=project_id)
+    
+    # Only admins and project managers can manage access
+    if request.user.profile.role not in ['admin'] and project.project_manager != request.user:
+        messages.error(request, 'You do not have permission to manage access for this project.')
+        return redirect('project_detail', project_id=project.id)
+    
+    current_access = project.access_permissions.all()
+    
+    if request.method == 'POST':
+        form = ProjectAccessForm(request.POST, project=project)
+        if form.is_valid():
+            access = form.save(commit=False)
+            access.project = project
+            access.granted_by = request.user
+            access.save()
+            
+            # Send notification to user about project access
+            user_fullname = access.user.get_full_name() or access.user.username
+            Notification.objects.create(
+                user=access.user,
+                notification_type='project_access_granted',
+                title=f'Access Granted: {project.name}',
+                message=f'You have been granted {access.get_access_role_display()} access to project "{project.name}"',
+                related_project=project
+            )
+            
+            messages.success(request, f'Access granted to {user_fullname} as {access.get_access_role_display()}.')
+            return redirect('project_access_manage', project_id=project.id)
+    else:
+        form = ProjectAccessForm(project=project)
+    
+    context = {
+        'project': project,
+        'form': form,
+        'current_access': current_access,
+    }
+    return render(request, 'projects/project_access_manage.html', context)
+
+
+@login_required
+@user_passes_test(is_project_manager)
+def project_access_revoke(request, project_id, user_id):
+    """Revoke project access for a user"""
+    project = get_object_or_404(Project, id=project_id)
+    access = get_object_or_404(ProjectAccess, project=project, user_id=user_id)
+    
+    # Only admins and project managers can revoke access
+    if request.user.profile.role not in ['admin'] and project.project_manager != request.user:
+        messages.error(request, 'You do not have permission to revoke access.')
+        return redirect('project_detail', project_id=project.id)
+    
+    user_fullname = access.user.get_full_name() or access.user.username
+    access.delete()
+    messages.success(request, f'Access revoked for {user_fullname}.')
+    return redirect('project_access_manage', project_id=project.id)
 
 
 @login_required
